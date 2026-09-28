@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>Ameba Mini 語音控制 LED 系統 專題報告</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Microsoft JhengHei", "Noto Sans TC", "PingFang TC", sans-serif; color: #1f2328; font-size: 10.5pt; line-height: 1.65; margin: 0; }
+  h1 { font-size: 22pt; margin: 0 0 6px; }
+  h2 { font-size: 15pt; border-bottom: 2px solid #2f6fdf; padding-bottom: 4px; margin: 26px 0 10px; break-after: avoid; }
+  h3 { font-size: 12pt; margin: 16px 0 6px; break-after: avoid; }
+  p { margin: 6px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 8px 0 12px; font-size: 9.5pt; break-inside: auto; }
+  tr { break-inside: avoid; }
+  th, td { border: 1px solid #c9d1d9; padding: 5px 7px; vertical-align: top; text-align: left; }
+  th { background: #eef3fb; }
+  code, pre { font-family: Consolas, "Cascadia Mono", monospace; font-size: 9pt; }
+  code { background: #f2f4f7; padding: 1px 4px; border-radius: 3px; }
+  pre { background: #f6f8fa; border: 1px solid #d8dee4; border-radius: 6px; padding: 8px 10px; white-space: pre-wrap; break-inside: avoid; margin: 6px 0 10px; }
+  .cover { height: 250mm; display: flex; flex-direction: column; justify-content: center; break-after: page; }
+  .cover .sub { font-size: 13pt; color: #57606a; margin-bottom: 40px; }
+  .cover table { width: 80%; font-size: 11pt; }
+  .cover th { width: 28%; }
+  .todo { background: #fff3bf; padding: 0 4px; }
+  .figure { text-align: center; margin: 10px 0 14px; break-inside: avoid; }
+  .figure img { max-width: 100%; border: 1px solid #d0d7de; border-radius: 6px; }
+  .figure .cap { font-size: 9pt; color: #57606a; margin-top: 4px; }
+  .shots { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .shots .figure { margin: 0; }
+  .note { background: #eef6ff; border-left: 4px solid #2f6fdf; padding: 6px 10px; margin: 8px 0; }
+  .ok { color: #1a7f37; font-weight: bold; }
+  .page-break { break-before: page; }
+  ol, ul { margin: 4px 0 8px; padding-left: 22px; }
+</style>
+</head>
+<body>
+
+<!-- ============ 封面 ============ -->
+<section class="cover">
+  <h1>Ameba Mini 語音控制 LED 系統</h1>
+  <div class="sub">以生成式 AI 輔助開發（Vibe Coding）之 IoT 專題報告</div>
+  <table>
+    <tr><th>姓名</th><td>李承遠</td></tr>
+    <tr><th>學號</th><td>615K0012C</td></tr>
+    <tr><th>開發板</th><td>Realtek AMB82-MINI（AmebaPro2）</td></tr>
+    <tr><th>GitHub 專案</th><td><a href="https://github.com/Welly178929/Ameba_Mini_Led">https://github.com/Welly178929/Ameba_Mini_Led</a></td></tr>
+    <tr><th>示範影片</th><td><a href="https://www.youtube.com/watch?v=aBHIVRHJqzE">https://www.youtube.com/watch?v=aBHIVRHJqzE</a></td></tr>
+    <tr><th>AI 工具</th><td>Claude Code（VS Code 擴充套件）</td></tr>
+  </table>
+</section>
+
+<!-- ============ 1 ============ -->
+<h2>1. 專題目標與成果摘要</h2>
+<p>以自然語言向 AI 說明需求，透過多次對話完成程式生成、測試與修正，建置一套能以語音控制 Ameba Mini 板上藍燈與綠燈的系統。</p>
+<table>
+  <tr><th style="width:26%">功能要求</th><th>實作方式</th><th style="width:10%">狀態</th></tr>
+  <tr><td>1. 語音輸入與辨識</td><td>瀏覽器 Web Speech API（語言 zh-TW），電腦或手機麥克風皆可；支援左邊 / 右邊開燈、關燈，另可文字輸入</td><td class="ok">完成</td></tr>
+  <tr><td>2. 指令傳輸與控制</td><td>Flask 伺服器解析後，經 USB 序列埠（115200 baud）傳送 <code>left_on</code> 等指令給 AMB82-MINI，控制板載 LED</td><td class="ok">完成</td></tr>
+  <tr><td>3. 操作回饋</td><td>網頁顯示辨識文字、送出的指令與<b>開發板回傳訊息</b>；只有收到板子確認後才更新 LED 狀態顯示</td><td class="ok">完成</td></tr>
+  <tr><td>4. 異常處理</td><td>非控制語句不送出任何指令；COM port 無法開啟、板子無回應、伺服器斷線皆會顯示提示</td><td class="ok">完成</td></tr>
+  <tr><td>5. 板卡與腳位確認</td><td>由 USB 晶片（CH340）與板名確認為 AMB82-MINI；由官方板級定義檔 <code>variant.h</code> 查得 <code>LED_B</code>=D23、<code>LED_G</code>=D24，<code>HIGH</code> 亮 / <code>LOW</code> 滅</td><td class="ok">完成</td></tr>
+  <tr><td>加分：閃爍三次</td><td>「左邊閃爍三次」「右邊閃3下」「閃爍三次」（兩顆），閃完恢復原本狀態</td><td class="ok">完成</td></tr>
+  <tr><td>加分：中英文指令</td><td>支援 <code>left on</code>、<code>green off</code>、<code>blink</code> 等英文說法</td><td class="ok">完成</td></tr>
+  <tr><td>加分：自訂控制介面</td><td>自製網頁介面，含麥克風按鈕、狀態列與 LED 狀態顯示</td><td class="ok">完成</td></tr>
+</table>
+
+<!-- ============ 2 ============ -->
+<h2>2. 系統架構</h2>
+<div class="figure">
+<svg viewBox="0 0 760 330" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="Microsoft JhengHei, sans-serif" font-size="12">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2f6fdf"/></marker>
+    <marker id="r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#1a7f37"/></marker>
+  </defs>
+  <!-- 電腦 -->
+  <rect x="10" y="10" width="470" height="310" rx="10" fill="#f6f8fa" stroke="#8c959f" stroke-dasharray="5 4"/>
+  <text x="22" y="30" font-weight="bold" fill="#57606a">電腦（Windows 11）</text>
+  <!-- 使用者 -->
+  <rect x="30" y="50" width="120" height="60" rx="8" fill="#fff" stroke="#57606a"/>
+  <text x="90" y="75" text-anchor="middle" font-weight="bold">使用者</text>
+  <text x="90" y="95" text-anchor="middle">麥克風說話</text>
+  <!-- 瀏覽器 -->
+  <rect x="30" y="150" width="170" height="150" rx="8" fill="#ddf4ff" stroke="#2f6fdf"/>
+  <text x="115" y="172" text-anchor="middle" font-weight="bold">瀏覽器 index.html</text>
+  <text x="42" y="196">① Web Speech API</text>
+  <text x="42" y="214">　語音 → 文字（zh-TW）</text>
+  <text x="42" y="240">⑥ 顯示辨識結果、</text>
+  <text x="42" y="258">　板子回應、LED 狀態</text>
+  <text x="42" y="282">　錯誤提示</text>
+  <!-- Flask -->
+  <rect x="270" y="50" width="195" height="250" rx="8" fill="#fff8c5" stroke="#bf8700"/>
+  <text x="367" y="72" text-anchor="middle" font-weight="bold">Flask 伺服器 server.py</text>
+  <rect x="284" y="86" width="167" height="72" rx="6" fill="#fff" stroke="#bf8700"/>
+  <text x="367" y="106" text-anchor="middle" font-weight="bold">voice_controller.py</text>
+  <text x="367" y="125" text-anchor="middle">② 正規表示式比對</text>
+  <text x="367" y="143" text-anchor="middle">→ {side, action, led}</text>
+  <rect x="284" y="172" width="167" height="72" rx="6" fill="#fff" stroke="#bf8700"/>
+  <text x="367" y="192" text-anchor="middle" font-weight="bold">ameba_serial.py</text>
+  <text x="367" y="211" text-anchor="middle">③ 轉成 left_on 等指令</text>
+  <text x="367" y="229" text-anchor="middle">寫入 COM7、讀回應</text>
+  <text x="367" y="272" text-anchor="middle" fill="#cf222e">無法辨識 → rejected</text>
+  <text x="367" y="289" text-anchor="middle" fill="#cf222e">不送出任何指令</text>
+  <!-- Ameba -->
+  <rect x="560" y="120" width="190" height="180" rx="10" fill="#dafbe1" stroke="#1a7f37"/>
+  <text x="655" y="142" text-anchor="middle" font-weight="bold">AMB82-MINI</text>
+  <text x="655" y="160" text-anchor="middle">ameba_led_control.ino</text>
+  <text x="572" y="186">④ 解析序列埠指令</text>
+  <text x="572" y="204">⑤ digitalWrite 控制 LED</text>
+  <circle cx="600" cy="240" r="14" fill="#2f6fdf"/><text x="620" y="236">藍燈 LED_B (D23)</text><text x="620" y="252" fill="#57606a">= 左邊</text>
+  <circle cx="600" cy="278" r="14" fill="#2da44e"/><text x="620" y="274">綠燈 LED_G (D24)</text><text x="620" y="290" fill="#57606a">= 右邊</text>
+  <!-- arrows -->
+  <line x1="90" y1="110" x2="90" y2="148" stroke="#2f6fdf" stroke-width="2" marker-end="url(#a)"/>
+  <text x="96" y="134" fill="#2f6fdf">語音</text>
+  <line x1="200" y1="185" x2="268" y2="120" stroke="#2f6fdf" stroke-width="2" marker-end="url(#a)"/>
+  <text x="234" y="100" text-anchor="end" fill="#2f6fdf">HTTP POST</text>
+  <text x="234" y="115" text-anchor="end" fill="#2f6fdf">/command</text>
+  <line x1="268" y1="250" x2="202" y2="250" stroke="#1a7f37" stroke-width="2" marker-end="url(#r)"/>
+  <text x="206" y="268" fill="#1a7f37">JSON 結果</text>
+  <line x1="451" y1="196" x2="558" y2="196" stroke="#2f6fdf" stroke-width="2" marker-end="url(#a)"/>
+  <text x="484" y="186" fill="#2f6fdf">USB 序列埠</text>
+  <text x="484" y="172" fill="#2f6fdf" font-family="Consolas">left_on\n</text>
+  <line x1="558" y1="226" x2="453" y2="226" stroke="#1a7f37" stroke-width="2" marker-end="url(#r)"/>
+  <text x="470" y="244" fill="#1a7f37">回傳執行結果</text>
+</svg>
+<div class="cap">圖 1　系統架構圖（藍色箭頭：控制方向；綠色箭頭：回饋方向）</div>
+</div>
+
+<h3>2.1 流程說明</h3>
+<ol>
+  <li><b>語音辨識（電腦 / 手機端）</b>：使用者按「🎤 使用麥克風」後，瀏覽器以 Web Speech API（<code>lang = zh-TW</code>）把語音轉成文字，並把文字以 JSON 送到 <code>POST /command</code>。語音辨識依規定在電腦端完成，不在 Ameba 上執行。</li>
+  <li><b>指令解析（Flask）</b>：<code>parse_voice_command()</code> 先把文字轉小寫，再用正規表示式比對「左邊 / 右邊 / 藍燈 / 綠燈」與「開 / 關 / 閃爍三次」，輸出 <code>{side, action, led}</code>。比對不到任何規則時回傳 <code>None</code>，伺服器回應 <code>rejected</code>，<b>不會送出任何指令</b>。</li>
+  <li><b>指令傳輸</b>：<code>AmebaLink.send()</code> 把解析結果轉成 <code>{side}_{action}</code>（例如 <code>left_on</code>），加上換行寫入 COM7，接著等待板子回傳一行文字（逾時 3 秒）。</li>
+  <li><b>LED 控制（AMB82-MINI）</b>：Arduino 程式在 <code>loop()</code> 讀取一行指令，以 <code>digitalWrite()</code> 控制 <code>LED_B</code> / <code>LED_G</code>，完成後回傳執行結果；未知指令回傳 <code>ignored</code>。</li>
+  <li><b>回饋</b>：伺服器把板子的回傳放在 JSON 的 <code>device.reply</code>，網頁只有在 <code>device.ok = true</code>（確實收到板子回應）時才更新 LED 狀態，符合「LED 實際狀態須有開發板回傳資訊作為依據」的要求。</li>
+</ol>
+
+<h3>2.2 通訊協定</h3>
+<table>
+  <tr><th>序列埠指令</th><th>板子動作</th><th>板子回傳</th></tr>
+  <tr><td><code>left_on</code> / <code>left_off</code></td><td>藍燈亮 / 滅</td><td><code>left_on: blue LED ON</code> / <code>left_off: blue LED OFF</code></td></tr>
+  <tr><td><code>right_on</code> / <code>right_off</code></td><td>綠燈亮 / 滅</td><td><code>right_on: green LED ON</code> / <code>right_off: green LED OFF</code></td></tr>
+  <tr><td><code>left_blink</code> / <code>right_blink</code> / <code>both_blink</code></td><td>閃爍三次（每次亮 250 ms、滅 250 ms）後恢復原本狀態</td><td><code>left_blink: blue LED blinked 3 times</code> 等</td></tr>
+  <tr><td>其他</td><td>不動作</td><td><code>ignored</code></td></tr>
+</table>
+<p>傳輸設定：USB 序列埠（CH340）、115200 baud、8N1，每行一個指令以 <code>\n</code> 結尾。選擇序列埠的原因是設定最單純、不需要 Wi-Fi 帳密，而且能直接取得板子的回傳文字作為執行依據。</p>
+
+<h3>2.3 程式檔案</h3>
+<table>
+  <tr><th style="width:36%">檔案</th><th>職責</th></tr>
+  <tr><td><code>static/index.html</code></td><td>操作介面、語音辨識、結果與錯誤顯示</td></tr>
+  <tr><td><code>src/server.py</code></td><td>Flask 伺服器、<code>/command</code> API</td></tr>
+  <tr><td><code>src/voice_controller.py</code></td><td>語音文字 → 控制指令的解析規則</td></tr>
+  <tr><td><code>src/ameba_serial.py</code></td><td>序列埠連線、傳送指令、讀取回應、錯誤處理與自動重連</td></tr>
+  <tr><td><code>arduino/ameba_led_control/ameba_led_control.ino</code></td><td>AMB82-MINI 端 LED 控制程式</td></tr>
+  <tr><td><code>tests/</code></td><td>12 項 pytest 單元測試（不需接硬體）</td></tr>
+</table>
+
+<!-- ============ 3 ============ -->
+<h2 class="page-break">3. 操作說明</h2>
+<h3>3.1 環境需求</h3>
+<ul>
+  <li>Windows 10/11、Python 3.13（其他 3.10 以上版本應可使用）、Chrome 或 Edge 瀏覽器（語音辨識需要）</li>
+  <li>Arduino IDE 2.x，並安裝 Realtek AmebaPro2 開發板套件 4.1.0</li>
+  <li>AMB82-MINI 以 USB 線連接電腦（本機為 COM7）</li>
+</ul>
+
+<h3>3.2 安裝</h3>
+<pre>git clone https://github.com/Welly178929/Ameba_Mini_Led.git
+cd Ameba_Mini_Led
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python -m pytest -q          # 12 passed</pre>
+<p>Arduino IDE：「偏好設定 → 額外的開發板管理員網址」加入下列網址，再到開發板管理員安裝 <b>Realtek Ameba Boards (AmebaPro2)</b>，開發板選 <b>AMB82-MINI</b>。</p>
+<pre>https://github.com/Ameba-AIoT/ameba-arduino-pro2/raw/main/Arduino_package/package_realtek_amebapro2_index.json</pre>
+
+<h3>3.3 燒錄開發板</h3>
+<pre>arduino-cli compile --fqbn realtek:AmebaPro2:Ameba_AMB82-MINI arduino/ameba_led_control
+arduino-cli upload  -p COM7 --fqbn realtek:AmebaPro2:Ameba_AMB82-MINI arduino/ameba_led_control</pre>
+<ol>
+  <li>若上傳出現 <code>ping fail</code>：按住 <b>BOOT</b> → 按一下 <b>RST</b> → 放開 BOOT，讓板子進入燒錄模式後再上傳。</li>
+  <li>上傳成功後<b>按一下 RST</b>，序列埠會印出 <code>Ameba Mini LED ready</code>，程式才開始執行。</li>
+  <li>燒錄前要先關閉 Flask 伺服器與序列埠監控視窗（COM port 同時只能被一個程式使用）。</li>
+</ol>
+
+<h3>3.4 啟動與使用</h3>
+<pre>python src/server.py                       # 預設 COM7
+$env:AMEBA_PORT="COM8"; python src/server.py   # 使用其他 COM port</pre>
+<ol>
+  <li>用 Chrome 或 Edge 開啟 <code>http://localhost:5000</code>。</li>
+  <li>按「🎤 使用麥克風」並說出指令（第一次使用需允許麥克風權限），或在輸入框輸入文字後按「送出指令」。</li>
+  <li>狀態列顯示：解析結果、板子回應、辨識出的文字；下方方塊顯示藍燈 / 綠燈目前狀態。綠底代表成功，紅底代表被拒絕或通訊失敗。</li>
+</ol>
+<table>
+  <tr><th>說法（範例）</th><th>動作</th></tr>
+  <tr><td>左邊開燈、左邊開藍燈、left on、blue on</td><td>藍燈亮</td></tr>
+  <tr><td>右邊開燈、右邊開綠燈、right on、green on</td><td>綠燈亮</td></tr>
+  <tr><td>左邊關燈、右邊關燈、left off、green off</td><td>對應的燈熄滅</td></tr>
+  <tr><td>左邊閃爍三次、右邊閃3下、閃爍三次、blink</td><td>指定的燈（未指定則兩顆）閃三次後恢復原狀</td></tr>
+  <tr><td>其他語句（例如「今天天氣很好」）</td><td>拒絕，LED 不變</td></tr>
+</table>
+
+<h3>3.5 操作畫面</h3>
+<div class="shots">
+  <div class="figure"><img src="images/ui_initial.png"><div class="cap">圖 2　初始畫面</div></div>
+  <div class="figure"><img src="images/ui_left_on.png"><div class="cap">圖 3　左邊開燈：收到板子回應 <code>left_on: blue LED ON</code></div></div>
+  <div class="figure"><img src="images/ui_right_on.png"><div class="cap">圖 4　右邊開燈：綠燈亮起</div></div>
+  <div class="figure"><img src="images/ui_rejected.png"><div class="cap">圖 5　非控制語句被拒絕，LED 狀態不變</div></div>
+  <div class="figure"><img src="images/ui_blink.png"><div class="cap">圖 6　加分功能：閃爍三次</div></div>
+  <div class="figure"><img src="images/ui_comm_fail.png"><div class="cap">圖 7　通訊失敗：無法開啟序列埠，LED 狀態不變並顯示原因</div></div>
+</div>
+
+<!-- ============ 4 ============ -->
+<h2 class="page-break">4. 異常處理與測試驗證</h2>
+<h3>4.1 異常處理</h3>
+<table>
+  <tr><th style="width:30%">狀況</th><th>系統行為</th></tr>
+  <tr><td>非控制語句、空白輸入</td><td>解析結果為 <code>None</code> → API 回應 <code>rejected</code>，不寫入序列埠，LED 不變（圖 5）</td></tr>
+  <tr><td>通訊中斷：USB 拔除、COM port 被占用</td><td>捕捉 <code>SerialException</code>，關閉失效連線並回傳錯誤原因；網頁顯示「板子控制失敗」，LED 狀態顯示不變（圖 7）。重新接上後，下一個指令會自動重新開啟連線</td></tr>
+  <tr><td>板子沒有回應（例如燒錄後未按 RST）</td><td>等待 3 秒逾時，提示「板子沒有回應，請確認 USB 連線並已按 RST 啟動程式」</td></tr>
+  <tr><td>網頁連不到伺服器</td><td>前端捕捉 <code>fetch</code> 錯誤，提示「無法連線到控制伺服器，LED 狀態未改變」</td></tr>
+  <tr><td>瀏覽器不支援語音辨識 / 辨識失敗</td><td>提示改用文字輸入或重新說話</td></tr>
+  <tr><td>板子收到未知指令</td><td>不動作並回傳 <code>ignored</code>，伺服器視為失敗</td></tr>
+</table>
+
+<h3>4.2 單元測試（pytest，12 項全數通過）</h3>
+<table>
+  <tr><th style="width:42%">測試</th><th>驗證內容</th></tr>
+  <tr><td><code>test_left_on / right_on / left_off</code></td><td>中文指令解析出正確的 side、action、led</td></tr>
+  <tr><td><code>test_invalid_command</code></td><td>「今天天氣很好」回傳 <code>None</code></td></tr>
+  <tr><td><code>test_left_blink / right_blink / blink_without_side</code></td><td>閃爍指令與左右判斷，含「閃3下」這類辨識變體</td></tr>
+  <tr><td><code>test_to_serial_command</code></td><td>解析結果轉換為序列埠指令字串</td></tr>
+  <tr><td><code>test_accepted_command_is_sent_to_board</code></td><td>被接受的指令確實送往板子（以假裝置替代硬體）</td></tr>
+  <tr><td><code>test_rejected_command_is_not_sent</code></td><td>被拒絕的語句<b>完全不會</b>送出指令</td></tr>
+  <tr><td><code>test_unavailable_port_reports_error…</code></td><td>COM port 不存在時回傳錯誤而不是讓伺服器當掉</td></tr>
+  <tr><td><code>test_communication_failure_is_reported_to_ui</code></td><td>通訊失敗資訊會傳到前端</td></tr>
+</table>
+
+<h3>4.3 實機測試（依驗收方式，經 API 送出文字指令）</h3>
+<table>
+  <tr><th>次數</th><th>輸入</th><th>解析結果</th><th>送出指令</th><th>板子回傳</th><th>實際 LED</th></tr>
+  <tr><td>1–5</td><td>左邊開燈</td><td>accepted ×5</td><td><code>left_on</code></td><td><code>left_on: blue LED ON</code> ×5</td><td>藍燈亮</td></tr>
+  <tr><td>1–5</td><td>右邊開燈</td><td>accepted ×5</td><td><code>right_on</code></td><td><code>right_on: green LED ON</code> ×5</td><td>綠燈亮</td></tr>
+  <tr><td>1</td><td>今天天氣很好</td><td>rejected</td><td>（未送出）</td><td>—</td><td>不變</td></tr>
+  <tr><td>1</td><td>左邊開燈（序列埠無法開啟）</td><td>accepted</td><td><code>left_on</code></td><td>錯誤：could not open port</td><td>不變</td></tr>
+</table>
+<p>每次開燈後都會送出對應的關燈指令，讓下一輪從熄滅狀態開始。10 次開燈指令皆收到正確回應（10/10）。此表以文字輸入測試控制鏈；語音辨識的實際表現會受麥克風與環境噪音影響，現場驗收以語音進行。</p>
+
+<!-- ============ 5 ============ -->
+<h2 class="page-break">5. AI 協作紀錄</h2>
+<p>開發工具為 VS Code 中的 Claude Code。AI 可以讀寫專案檔案、執行終端機指令（pytest、arduino-cli、序列埠測試），因此每一步都能由 AI 實際執行驗證，再由我確認板子上的燈號。</p>
+
+<h3>5.1 關鍵提示詞與過程</h3>
+<table>
+  <tr><th style="width:4%">#</th><th style="width:27%">我的提示詞</th><th>AI 的處理與產出</th><th style="width:20%">結果 / 修正</th></tr>
+  <tr><td>1</td><td>「告訴我這個專案的執行辦法」</td><td>閱讀專案結構，實際執行測試與 demo，整理安裝、測試、啟動伺服器的步驟</td><td>發現 README 寫的 <code>python src/demo.py</code> 會出現 <code>ModuleNotFoundError</code>，改為 <code>python -m src.demo</code>；終端機中文亂碼需設 <code>PYTHONUTF8=1</code></td></tr>
+  <tr><td>2</td><td>「ameba連結的port為COM7，幫我將開關燈指令嘗試燒錄ameba」</td><td>查詢 COM7 的硬體 ID（CH340），判斷板子為 AMB82-MINI；安裝 AmebaPro2 開發板套件；從官方 <code>variant.h</code> 查出板載 LED 腳位；編譯並燒錄</td><td>修正兩個錯誤：腳位由示意的 2/4 改為 <code>LED_B</code>/<code>LED_G</code>；<code>side == "left"</code> 改為 <code>strcmp</code>。燒錄成功但序列埠無回應</td></tr>
+  <tr><td>3</td><td>「燒錄」→「好了」</td><td>重新燒錄後仍無回應；AI 判斷板子仍停在燒錄模式，請我按 RST，並在背景監聽開機訊息</td><td>收到開機訊息與 <code>Ameba Mini LED ready</code>，4 個指令皆正確回應，實際亮燈</td></tr>
+  <tr><td>4</td><td>「在送出指令時有成功亮燈，繼續」</td><td>新增 <code>ameba_serial.py</code>，把 Flask 伺服器與序列埠串接；前端改成依板子回傳更新狀態；新增伺服器測試</td><td>透過 API 實測 5 種輸入皆正確；處理 COM port 被 Flask reloader 重複開啟的問題</td></tr>
+  <tr><td>5</td><td>「加入「閃爍三次」指令」</td><td>擴充解析規則（含左 / 右 / 兩顆、「閃3下」等變體），Arduino 新增 <code>blinkLeds()</code>，新增 3 項測試</td><td>發現閃爍約需 1.5 秒，與讀取逾時相同，將逾時改為 3 秒；燒錄出現 <code>ping fail</code></td></tr>
+  <tr><td>6</td><td>「重新燒錄」（先手動進入燒錄模式）</td><td>燒錄成功，按 RST 後自動測試 5 個序列埠指令，再經 API 測試</td><td>閃爍功能實機確認</td></tr>
+  <tr><td>7</td><td>貼上作業說明，「完成 四、繳交成果 中的1、3項」</td><td>對照作業要求補強：伺服器斷線提示、無回應時自動重連；新增 <code>requirements.txt</code>、完整 README、12 項測試；擷取操作畫面並撰寫本報告；上傳 GitHub</td><td>12 passed；實機 10/10</td></tr>
+</table>
+
+<h3>5.2 實際遇到的問題與解決</h3>
+<p><b>問題一：燒錄成功，但板子完全沒有反應</b></p>
+<p>第一次燒錄時 arduino-cli 顯示 <code>upload success</code>，但從 COM7 送出 <code>left_on</code> 沒有任何回應。重新燒錄、調整 DTR/RTS 設定、延長等待時間也都沒有效果。後來請 AI 開啟序列埠監聽 45 秒，同時由我按下 RST，才收到完整的開機訊息與 <code>Ameba Mini LED ready</code>，之後每個指令都正確回應。</p>
+<p>原因是 AMB82-MINI 上傳完成後會停在燒錄模式，<b>必須按 RST 才會執行新程式</b>。這個問題只看程式碼找不出來，是靠「監聽板子開機輸出」這個測試方法才定位到。後續也把「上傳後按 RST」與「<code>ping fail</code> 時手動按 BOOT + RST」寫進 README。</p>
+
+<p><b>問題二：AI 最初產生的 LED 腳位是猜的</b></p>
+<p>專案初版的 Arduino 程式使用 <code>BLUE_LED = 2</code>、<code>GREEN_LED = 4</code>，註解寫著「可替換為實際 GPIO 腳位」。燒錄前 AI 直接去讀安裝好的開發板套件中 <code>variants/ameba_amb82-mini/variant.h</code>，查到 <code>#define LED_B AMB_D23 // Blue</code> 與 <code>#define LED_G AMB_D24 // Green</code>，改用官方定義。這讓我學到 AI 生成的硬體相關數值要回到官方資料驗證。</p>
+
+<p><b>問題三：C 字串比較錯誤</b></p>
+<pre>int pin = side == "left" ? BLUE_LED : GREEN_LED;          // 修正前：比較的是指標位址
+int pin = strcmp(side, "left") == 0 ? BLUE_LED : GREEN_LED; // 修正後：比較字串內容</pre>
+<p>這段程式可以編譯，而且在某些編譯器下剛好能運作，所以單靠「能不能跑」看不出來，是在閱讀程式碼時發現的。</p>
+
+<p><b>問題四：閃爍指令被誤判為失敗</b></p>
+<p>閃爍三次需要約 1.5 秒（3 × 500 ms），而伺服器讀取回應的逾時也是 1.5 秒，板子還沒回報就已判定「沒有回應」。AI 在加入功能時計算了執行時間，把逾時改為 3 秒，並讓板子在閃完後才回傳，使「回報成功」真正代表動作完成。</p>
+
+<h3>5.3 如何驗證 AI 產生的程式</h3>
+<ol>
+  <li><b>單元測試</b>：解析規則、指令轉換、拒絕與通訊失敗都有 pytest 測試，並用假裝置取代硬體，每次修改後重跑。</li>
+  <li><b>分層實機測試</b>：先直接對 COM7 送序列埠指令，確認 Arduino 端正確；再經 HTTP API 測試；最後在瀏覽器上操作。出錯時能判斷是哪一層的問題。</li>
+  <li><b>以開發板回傳為依據</b>：每個指令都要求板子回傳一行結果，網頁只根據這個回傳更新狀態，並由我親眼確認 LED 與回傳一致。</li>
+  <li><b>對照官方資料</b>：腳位、開發板套件網址、燒錄方式都回到 Realtek 官方套件確認，不直接採用 AI 的預設值。</li>
+  <li><b>刻意製造錯誤</b>：用不存在的 COM port、非控制語句測試異常處理，確認 LED 不會被任意改變。</li>
+</ol>
+
+<!-- ============ 6 ============ -->
+<h2>6. 學習心得</h2>
+<p>這次專題讓我自己實作了以 Vibe Coding 開發Ameba Mini的專案，其特別之處在於我不需要先把每一行程式想清楚，而是用自然語言描述「想要什麼結果」，例如「幫我把開關燈指令燒錄到 COM7 的 Ameba」，由 AI 查硬體資訊、寫程式、編譯燒錄並測試。原本以為最花時間的會是寫程式，實際上最花時間的是讓硬體真正動起來，例如燒錄後要按 RST、燒錄失敗要手動進入燒錄模式，這些都需要我在板子旁邊配合操作。</p>
+<p>我也發現 AI 產生的程式不能直接相信。初版程式裡的 LED 腳位是示意值、字串比較的寫法有錯誤，這些都是在實際燒錄和閱讀程式時才被找出來的bug。因此一定得要求ai助理「LED 狀態一定要有板子回傳作為依據」，才能更好的除錯。</p>
+<p>AI 讓我能快速完成原型並加入閃爍、中英文指令等功能，但系統設計的除錯判斷以及最後的實機確認，仍然需要由我來負責（例如通訊失敗時該怎麼提示、什麼情況不能改變 LED 狀態）。</p>
+
+<!-- ============ 7 ============ -->
+<h2 class="page-break">附錄：關鍵程式片段</h2>
+<h3>A. 語音文字解析（src/voice_controller.py，節錄）</h3>
+<pre>def parse_voice_command(text: str):
+    normalized = text.strip().lower()
+    # 閃爍要先判斷，避免「左邊燈閃爍三次」被當成開燈
+    if any(re.search(p, normalized) for p in BLINK_PATTERNS):
+        ...
+        return {"side": "both", "action": "blink", "led": "both", "raw": text}
+    if any(re.search(p, normalized) for p in LEFT_PATTERNS):
+        return {"side": "left", "action": "on", "led": "blue", "raw": text}
+    ...
+    return None   # 非控制語句：不產生任何指令</pre>
+
+<h3>B. 序列埠傳送（src/ameba_serial.py，節錄）</h3>
+<pre>def send(self, serial_command: str) -> dict:
+    with self._lock:
+        try:
+            self._ensure_open()            # 開啟時不拉 DTR/RTS，避免板子重置
+            self._serial.reset_input_buffer()
+            self._serial.write((serial_command + "\n").encode("ascii"))
+            reply = self._serial.readline().decode("utf-8", errors="replace").strip()
+        except serial.SerialException as exc:
+            self.close()                   # 通訊中斷：關閉失效連線，下次重新開啟
+            return {"ok": False, ..., "error": f"無法與開發板通訊：{exc}"}
+        if not reply:
+            self.close()
+            return {"ok": False, ..., "error": "板子沒有回應，請確認 USB 連線並已按 RST 啟動程式"}
+    return {"ok": reply != "ignored", ..., "reply": reply}</pre>
+
+<h3>C. 開發板端（arduino/ameba_led_control/ameba_led_control.ino，節錄）</h3>
+<pre>const int BLUE_LED = LED_B;   // AMB82-MINI 板載藍燈 (D23)
+const int GREEN_LED = LED_G;  // AMB82-MINI 板載綠燈 (D24)
+
+void loop() {
+  if (Serial.available() > 0) {
+    String cmd = Serial.readStringUntil('\n');
+    cmd.trim();
+    if (cmd == "left_on") {
+      setLedState("left", true);
+      Serial.println("left_on: blue LED ON");
+    } else if (cmd == "both_blink") {
+      blinkLeds(true, true, 3);            // 閃完恢復原本狀態後才回報
+      Serial.println("both_blink: both LEDs blinked 3 times");
+    } ...
+    } else {
+      Serial.println("ignored");
+    }
+  }
+}</pre>
+
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ameba Mini Voice LED Control</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; background: #f2f7ff; }
+    .panel { max-width: 700px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 16px rgba(0,0,0,0.08); }
+    h1 { text-align: center; }
+    button, input { font-size: 16px; padding: 10px 14px; margin: 8px 0; }
+    .status { margin-top: 20px; padding: 12px; border-radius: 8px; background: #eef5ff; }
+    .bad { background: #fff0f0; }
+    .good { background: #eefcf3; }
+    .led-box { display: flex; gap: 20px; margin-top: 20px; }
+    .led { width: 120px; padding: 12px; border-radius: 10px; text-align: center; border: 2px solid #ddd; }
+    .blue { background: #def2ff; }
+    .green { background: #dfffe9; }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <h1>Ameba Mini 語音控制 LED 系統</h1>
+    <p>支援指令：左邊開燈 / 右邊開燈 / 左邊關燈 / 右邊關燈 / 閃爍三次（可加左邊、右邊）</p>
+    <input id="commandInput" type="text" size="40" placeholder="輸入文字或說出語音" />
+    <button id="submitBtn">送出指令</button>
+    <button id="micBtn">🎤 使用麥克風</button>
+    <div id="status" class="status">等待輸入...</div>
+
+    <div class="led-box">
+      <div id="leftLed" class="led blue">藍燈: OFF</div>
+      <div id="rightLed" class="led green">綠燈: OFF</div>
+    </div>
+  </div>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const leftLedEl = document.getElementById('leftLed');
+    const rightLedEl = document.getElementById('rightLed');
+    const inputEl = document.getElementById('commandInput');
+
+    function updateLED(command) {
+      if (!command) return;
+      const led = command.led;
+      const action = command.action;
+      if (led === 'blue') {
+        leftLedEl.textContent = `藍燈: ${action === 'on' ? 'ON' : 'OFF'}`;
+      }
+      if (led === 'green') {
+        rightLedEl.textContent = `綠燈: ${action === 'on' ? 'ON' : 'OFF'}`;
+      }
+    }
+
+    async function sendCommand(text) {
+      statusEl.className = 'status';
+      statusEl.textContent = '辨識中...';
+      let data;
+      try {
+        const res = await fetch('/command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+        data = await res.json();
+      } catch (err) {
+        statusEl.className = 'status bad';
+        statusEl.textContent = `無法連線到控制伺服器，LED 狀態未改變 | 辨識結果: ${text}`;
+        return;
+      }
+
+      if (data.status === 'accepted' && data.device && data.device.ok) {
+        updateLED(data.command);
+        statusEl.className = 'status good';
+        statusEl.textContent = `${data.message} | 板子回應: ${data.device.reply} | 辨識結果: ${text}`;
+      } else if (data.status === 'accepted') {
+        statusEl.className = 'status bad';
+        const reason = data.device ? (data.device.error || data.device.reply) : '未連線';
+        statusEl.textContent = `${data.message}，但板子控制失敗: ${reason} | 辨識結果: ${text}`;
+      } else {
+        statusEl.className = 'status bad';
+        statusEl.textContent = `${data.message} | 辨識結果: ${text}`;
+      }
+    }
+
+    document.getElementById('submitBtn').addEventListener('click', () => {
+      const text = inputEl.value.trim();
+      if (text) sendCommand(text);
+    });
+
+    document.getElementById('micBtn').addEventListener('click', () => {
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        statusEl.className = 'status bad';
+        statusEl.textContent = '此瀏覽器不支援語音辨識，請手動輸入文字。';
+        return;
+      }
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'zh-TW';
+      recognition.start();
+      statusEl.className = 'status';
+      statusEl.textContent = '正在收音...';
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        inputEl.value = transcript;
+        sendCommand(transcript);
+      };
+      recognition.onerror = () => {
+        statusEl.className = 'status bad';
+        statusEl.textContent = '語音辨識失敗，請重新說話或手動輸入。';
+      };
+    });
+  </script>
+</body>
+</html>
